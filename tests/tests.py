@@ -61,3 +61,17 @@ def test_convolve_continuous_shifting(exponential_kernels_shifted):
     ker, ker_left, ker_right, t, dt, x, y, y_left, y_right = exponential_kernels_shifted
     assert np.allclose(y[:-10], y_right[10:])
     assert np.allclose(y[10:], y_left[:-10])
+    
+def test_convolve_continuous_basis(exponential_kernels_shifted):
+    ker_center, ker_left, ker_right, t, dt, x, y, y_left, y_right = exponential_kernels_shifted
+
+    t = np.arange(0, 200, 1)
+    signal = np.random.randn(len(t))
+    
+    for ker in [ker_center, ker_left, ker_right]:
+        convolved_signal = ker.convolve_continuous(t, signal)
+        y_basis = ker.convolve_basis_continuous(t, signal)
+        for ii in range(2):
+            _ker = KernelFun(exponential, basis_kwargs=dict(tau=[taus[ii]]), shared_kwargs=ker.shared_kwargs, support=ker.support, coefs=[1])
+            _y = _ker.convolve_continuous(t, signal)
+            assert np.allclose(y_basis[:, ii], _y)

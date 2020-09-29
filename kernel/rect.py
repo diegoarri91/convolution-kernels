@@ -3,10 +3,11 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 from .base import Kernel
-# from ..signals import diag_indices
 from .utils import get_dt, searchsorted
 
-#TODO. using KernelRect with negative time bins doesnt work at all. FIX
+
+#TODO. using KernelRect with negative time bins doesnt work. FIX
+
 class KernelRect(Kernel):
 
     def __init__(self, tbins, coefs=None, prior=None, prior_pars=None):
@@ -158,56 +159,3 @@ class KernelRect(Kernel):
                     X[indices] += 1
 
         return X
-
-    # def gh_log_prior(self, coefs):
-    #
-    #     if self.prior == 'exponential':
-    #         lam, mu = self.prior_pars[0], np.exp(-self.prior_pars[1] * np.diff(self.tbins[:-1]))
-    #
-    #         log_prior = -lam * np.sum((coefs[1:] - mu * coefs[:-1]) ** 2)
-    #
-    #         g_log_prior = np.zeros(len(coefs))
-    #         # TODO. somethingg odd with g_log_prior[0]. FIX
-    #         g_log_prior[1] = -2 * lam * mu[0] * (coefs[1] - mu[0] * coefs[0])
-    #         g_log_prior[2:-1] = 2 * lam * (-mu[:-1] * coefs[:-2] + (1 + mu[1:] ** 2) * coefs[1:-1] - mu[1:] * coefs[2:])
-    #         g_log_prior[-1] = 2 * lam * (coefs[-1] - mu[-1] * coefs[-2])
-    #         g_log_prior = -g_log_prior
-    #
-    #         h_log_prior = np.zeros((len(coefs), len(coefs)))
-    #
-    #         h_log_prior[1, 1], h_log_prior[1, 2] = mu[0] ** 2, -mu[0]
-    #         h_log_prior[2:-1, 2:-1][diag_indices(len(coefs) - 2, k=0)] = 1 + mu[1:] ** 2
-    #         h_log_prior[2:-1, 2:-1][diag_indices(len(coefs) - 2, k=1)] = -mu[1:-1]
-    #         h_log_prior[-1, -1] = 1
-    #         h_log_prior = -2 * lam * h_log_prior
-    #
-    #         h_log_prior[np.tril_indices_from(h_log_prior, k=-1)] = h_log_prior.T[
-    #             np.tril_indices_from(h_log_prior, k=-1)]
-    #
-    #     elif self.prior == 'smooth_2nd_derivative':
-    #
-    #         lam = self.prior_pars[0]
-    #
-    #         log_prior = -lam * np.sum((coefs[:-2] + coefs[2:] - 2 * coefs[1:-1]) ** 2)
-    #
-    #         g_log_prior = np.zeros(len(coefs))
-    #         g_log_prior[0] = -2 * lam * (coefs[0] - 2 * coefs[1] + coefs[2])
-    #         g_log_prior[1] = -2 * lam * (-2 * coefs[0] + 5 * coefs[1] - 4 * coefs[2] + coefs[3])
-    #         g_log_prior[2:-2] = -2 * lam * \
-    #                     (coefs[:-4] - 4 * coefs[1:-3] + 6 * coefs[2:-2] - 4 * coefs[3:-1] + coefs[4:])
-    #         g_log_prior[-2] = -2 * lam * (coefs[-4] - 4 * coefs[-3] + 5 * coefs[-2] - 2 * coefs[-1])
-    #         g_log_prior[-1] = -2 * lam * (coefs[-3] - 2 * coefs[-2] + coefs[-1])
-    #
-    #         h_log_prior = np.zeros((len(coefs), len(coefs)))
-    #         h_log_prior[0, 0], h_log_prior[0, 1], h_log_prior[0, 2] = 1, -2, 1
-    #         h_log_prior[1, 1], h_log_prior[1, 2], h_log_prior[1, 3] = 5, -4, 1
-    #         h_log_prior[2:-2, 2:-2][diag_indices(len(coefs) - 4, k=0)] = 6
-    #         h_log_prior[2:-2, 2:-2][diag_indices(len(coefs) - 4, k=1)] = -4
-    #         h_log_prior[2:-2, 2:-2][diag_indices(len(coefs) - 4, k=2)] = 1
-    #         h_log_prior[-2, -2], h_log_prior[-2, -1] = 5, -2
-    #         h_log_prior[-1, -1] = 1
-    #         h_log_prior = - 2 * lam * h_log_prior
-    #         h_log_prior[np.tril_indices_from(h_log_prior, k=-1)] = h_log_prior.T[
-    #             np.tril_indices_from(h_log_prior, k=-1)]
-    #
-    #     return log_prior, g_log_prior, h_log_prior

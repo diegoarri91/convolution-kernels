@@ -39,11 +39,15 @@ class KernelFun(Kernel):
         return basis
 
     def convolve_basis_continuous(self, t, x):
-        """# Given a 1d-array t and an nd-array x with x.shape=(len(t),...) returns X_te,
-        # the convolution matrix of each rectangular function of the base with axis 0 of x for all other axis values
-        # so that X_te.shape = (x.shape, nbasis)
-        # Discrete convolution can be achieved by using an x with 1/dt on the correct timing values
-        Assumes sorted t"""
+        """Implements the convolution of a time series with the kernel basis
+
+        Args:
+            t (array): time points
+            x (array): time series to be convolved
+
+        Returns:
+            array: convolved time series with kernel basis
+        """
 
         dt = get_dt(t)
         arg_support0, arg_supportf = get_arg_support(dt, self.support)
@@ -83,12 +87,9 @@ class KernelFun(Kernel):
         X = np.zeros(shape)
 
         kwargs = {**{key: vals[None, :] for key, vals in self.basis_kwargs.items()}, **self.shared_kwargs}
-
-#         basis = self.fun(t[:argf, None], **kwargs).reshape(basis_shape)
         
         for ii, arg in enumerate(arg_s):
             indices = tuple([slice(arg, None)] + [s[dim][ii] for dim in range(1, len(s))] + [slice(0, self.nbasis)])
-#             print(ii, self.nbasis, self.fun(t[arg:, None] - t[arg], **kwargs).shape)
             X[indices] += self.fun(t[arg:, None] - t[arg], **kwargs).reshape((len(t[arg:]), self.nbasis))
 
         return X

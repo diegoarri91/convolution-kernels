@@ -10,15 +10,12 @@ class Kernel:
     def __init__(self, prior=None, prior_pars=None):
         self.prior = prior
         self.prior_pars = np.array(prior_pars)
-        self.fix_values = False
-        self.values = None
 
     def interpolate(self, t):
         pass
-
-    # def get_KernelValues(self, t):
-    #     kernel_values = self.interpolate(t)
-    #     return KernelValues(values=kernel_values, support=self.support)
+    
+    def interpolate_basis(self, t):
+        pass
 
     def plot(self, t=None, ax=None, offset=0, invert_t=False, invert_values=False, exp_values=False, **kwargs):
 
@@ -39,21 +36,6 @@ class Kernel:
         ax.plot(t, y, **kwargs)
 
         return ax
-
-    def set_values(self, dt):
-        arg0 = int(self.support[0] / dt)
-        argf = int(np.ceil(self.support[1] / dt))
-        t_support = np.arange(arg0, argf + 1, 1) * dt
-        self.values = self.interpolate(t_support)
-        return self
-
-    # def set_values(self, dt, ndim):
-    #     arg0 = int(self.support[0] / dt)
-    #     argf = int(np.ceil(self.support[1] / dt))
-    #
-    #     t_support = np.arange(arg0, argf + 1, 1) * dt
-    #     t_shape = (len(t_support), ) + tuple([1] * (ndim-1))
-    #     self.values = self.interpolate(t_support).reshape(t_shape)
     
     def convolve_continuous(self, t, x):
         """Implements the convolution of a time series with the kernel
@@ -70,11 +52,8 @@ class Kernel:
         dt = get_dt(t)
         arg_support0, arg_supportf = get_arg_support(dt, self.support)
 
-        if isinstance(self, KernelValues):
-            kernel_values = self.values
-        else:
-            t_support = np.arange(arg_support0, arg_supportf, 1) * dt
-            kernel_values = self.interpolate(t_support)
+        t_support = np.arange(arg_support0, arg_supportf, 1) * dt
+        kernel_values = self.interpolate(t_support)
         
         shape = (kernel_values.shape[0], ) + tuple([1] * (x.ndim - 1))
         kernel_values = kernel_values.reshape(shape)
@@ -94,48 +73,39 @@ class Kernel:
         
         return convolution
 
-    def correlate_continuous(self, t, I, mode='fft'):
-        return self.convolve_continuous(t, I[::-1], mode=mode)[::-1]
+    def correlate_continuous(self, t, x):
+        return self.convolve_continuous(t, x[::-1])[::-1]
 
-    def fit(self, t, I, v, mask=None):
+    def fit(self, t, input, output, mask=None):
 
         if mask is None:
-            mask = np.ones(I.shape, dtype=bool)
+            mask = np.ones(input.shape, dtype=bool)
 
-        X = self.convolve_basis_continuous(t, I)
+        X = self.convolve_basis_continuous(t, input)
         X = X[mask, :]
-        v = v[mask]
+        output = output[mask]
 
-        self.coefs = np.linalg.lstsq(X, v, rcond=None)[0]
-        
-    # def deconvolve_continuous(self, t, x, mask=None):
-    #
-    #     if mask is None:
-    #         mask = np.ones(x.shape, dtype=bool)
-    #
-    #     X = self.convolve_basis_continuous(t, x)
-    #     X = X[mask, :]
-    #     v = v[mask]
-    #
-    #     self.coefs = np.linalg.lstsq(X, v, rcond=None)[0]
+        self.coefs = np.linalg.lstsq(X, output, rcond=None)[0]
 
     def convolve_discrete(self, t, s, A=None, shape=None, renewal=False):
-        
-        # Given a 1d-array t and a tuple of 1d-arrays s=(tjs, shape) containing timings in the
-        # first 1darray of the tuple returns the convolution of the kernels with the timings
-        # the convolution of the kernel with the timings. conv.ndim = s.ndim and
-        # conv.shape = (len(t), max of the array(accross each dimension))
-        # A is used as convolution weights. A=(A) with len(A)=len(s[0]).
-        # Assumes kernel is only defined on t >= 0
+        """Implements the convolution of a discrete events in time with the kernel
+
+        Args:
+            t (array): time points
+            s (array): time events
+            mode (str): 
+
+        Returns:
+            array: convolved time series
+        """
         
         if type(s) is not tuple:
             s = (s,)
             
         if A is None:
-            A = (1. for ii in range(s[0].size)) # Instead of creating the whole list/array in memory x use a generator
+            A = (1. for ii in range(s[0].size))
 
         if shape is None:
-            # max(s[dim]) determines the size of each dimension
             shape = tuple([max(s[dim]) + 1 for dim in range(1, len(s))])
 
         arg_s = searchsorted(t, s[0])
@@ -152,9 +122,3 @@ class Kernel:
                 convolution[index] = A * self.interpolate(t[arg:] - t[arg])
                 
         return convolution
-
-class KernelValues(Kernel):
-
-    def __init__(self, values=None, support=None):
-        self.values = values
-        self.support = np.array(support)

@@ -6,6 +6,6 @@ setup(name='convolution-kernels',
     author='Diego M. Arribas',
     author_email='diegoarri91@gmail.com',
     license='MIT',
-    install_requires=['numpy'],
+    install_requires=['matplotlib', 'numpy'],
     packages=['kernel']
       )
