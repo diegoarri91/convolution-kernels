@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import fftconvolve
 
-from .utils import get_dt, searchsorted
+from .utils import get_arg_support, get_dt, searchsorted
 
 
 class Kernel:
@@ -20,15 +20,14 @@ class Kernel:
     #     kernel_values = self.interpolate(t)
     #     return KernelValues(values=kernel_values, support=self.support)
 
-    def plot(self, t=None, ax=None, offset=0, invert_t=False, invert_values=False, exp_values=False,  **kwargs):
+    def plot(self, t=None, ax=None, offset=0, invert_t=False, invert_values=False, exp_values=False, **kwargs):
 
         if t is None:
-            dt = .1
-            t = np.arange(self.support[0], self.support[1] + dt, dt)
+#             t = np.arange(self.support[0], self.support[1] + dt, dt)
+            t = np.linspace(self.support[0], self.support[1], 200)
 
         if ax is None:
-            figsize = kwargs.get('figsize', (8, 5) )
-            fig, ax = plt.subplots(figsize = figsize)
+            fig, ax = plt.subplots()
 
         y = self.interpolate(t) + offset
         if invert_t:
@@ -40,25 +39,6 @@ class Kernel:
         ax.plot(t, y, **kwargs)
 
         return ax
-    
-    def plot_lin_log(self, t=None, axs=None, **kwargs):
-
-        if t is None:
-            dt = .1
-            t = np.arange(self.support[0], self.support[1] + dt, dt)
-
-        if axs is None:
-            figsize = kwargs.get('figsize', (12, 5) );
-            fig, axs = plt.subplots(figsize = figsize, ncols = 3);
-            
-        y = self.interpolate(t)
-        axs[0].plot(t, y)
-        axs[1].plot(t, y)
-        axs[1].set_yscale('log')
-        axs[2].plot(t, y)
-        axs[2].set_xscale('log'); axs[2].set_yscale('log')
-        
-        return axs
 
     def set_values(self, dt):
         arg0 = int(self.support[0] / dt)
@@ -75,22 +55,25 @@ class Kernel:
     #     t_shape = (len(t_support), ) + tuple([1] * (ndim-1))
     #     self.values = self.interpolate(t_support).reshape(t_shape)
     
-    def convolve_continuous(self, t, x, mode='fft'):
+    def convolve_continuous(self, t, x):
+        """Implements the convolution of a time series with the kernel
+
+        Args:
+            t (array): time points
+            x (array): time series to be convolved
+            mode (str): 
+
+        Returns:
+            array: convolved time series
         """
-        Implements convolution
-        """
-        # Given a 1d-array t and an nd-array x with x.shape=(len(t),...) returns convolution,
-        # the convolution of the kernel with axis 0 of x for all other axis values
-        # so that convolution.shape = x.shape
         
         dt = get_dt(t)
-        arg0 = int(self.support[0] / dt)
-        argf = int(np.ceil(self.support[1] / dt))
+        arg_support0, arg_supportf = get_arg_support(dt, self.support)
 
         if isinstance(self, KernelValues):
             kernel_values = self.values
         else:
-            t_support = np.arange(arg0, argf + 1, 1) * dt
+            t_support = np.arange(arg_support0, arg_supportf, 1) * dt
             kernel_values = self.interpolate(t_support)
         
         shape = (kernel_values.shape[0], ) + tuple([1] * (x.ndim - 1))
@@ -98,20 +81,14 @@ class Kernel:
 
         convolution = np.zeros(x.shape)
         
-        if mode == 'fft':
-        
-            full_convolution = fftconvolve(kernel_values, x, mode='full', axes=0)
-#             print(argf - arg0, kernel_values.shape, x.shape, full_convolution.shape)
+        full_convolution = fftconvolve(kernel_values, x, mode='full', axes=0)
 
-            if arg0 >= 0:
-                convolution[arg0:, ...] = full_convolution[:len(t) - arg0, ...]
-#             elif arg0 < 0 and len(t) - arg0 <= len(t) + argf - arg0:
-            elif arg0 < 0 and argf >= 0:
-                convolution = full_convolution[-arg0:len(t) - arg0, ...]
-#             elif arg0 < 0 and len(t) - arg0 > len(t) + argf - arg0:
-#             elif arg0 < 0 and argf < 0:
-            else:
-                convolution[:len(t) + argf, ...] = full_convolution[-arg0:, ...]
+        if arg_support0 >= 0:
+            convolution[arg_support0:, ...] = full_convolution[:len(t) - arg_support0, ...]
+        elif arg_support0 < 0 and arg_supportf >= 0: # or to arg_support0 < 0 and len(t) - arg_support0 <= len(t) + arg_supportf - arg_support0:
+            convolution = full_convolution[-arg_support0:len(t) - arg_support0, ...]
+        else: # or arg0 < 0 and len(t) - arg0 > len(t) + arg_supportf - arg0:
+            convolution[:len(t) + arg_supportf, ...] = full_convolution[-arg_supportf:, ...]
                 
         convolution *= dt
         

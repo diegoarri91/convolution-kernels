@@ -1,11 +1,15 @@
 import numpy as np
 
 
+def get_arg_support(dt, t_support):
+    arg_support0 = int(t_support[0] / dt)
+    arg_supportf = int(np.ceil(t_support[1] / dt))
+    return arg_support0, arg_supportf
+
 def get_dt(t):
     arg_dt = 20 if len(t) >= 20 else len(t)
     dt = np.median(np.diff(t[:arg_dt]))
     return dt
-
 
 def searchsorted(t, s, side='left'):
     '''
