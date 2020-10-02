@@ -23,7 +23,7 @@ class KernelBasisValues(Kernel):
 
     def interpolate(self, t):
 
-        assert np.isclose(self.dt, get_dt(t))
+        # assert np.isclose(self.dt, get_dt(t))
 
         t = np.atleast_1d(t)
         res = np.zeros(len(t))
