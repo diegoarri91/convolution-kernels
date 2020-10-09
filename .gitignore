@@ -5,4 +5,5 @@
 /kernel/__pycache__/
 /kernel/.ipynb_checkpoints/
 /_tests/
+/tests/__pycache__/
 
