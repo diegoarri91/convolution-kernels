@@ -17,28 +17,8 @@ class Kernel:
     def interpolate_basis(self, t):
         pass
 
-    def plot(self, t=None, ax=None, offset=0, invert_t=False, invert_values=False, exp_values=False, **kwargs):
-
-        if t is None:
-#             t = np.arange(self.support[0], self.support[1] + dt, dt)
-            t = np.linspace(self.support[0], self.support[1], 200)
-
-        if ax is None:
-            fig, ax = plt.subplots()
-
-        y = self.interpolate(t) + offset
-        if invert_t:
-            t = -t
-        if invert_values:
-            y = -y
-        if exp_values:
-            y = np.exp(y)
-        ax.plot(t, y, **kwargs)
-
-        return ax
-    
     def convolve_continuous(self, t, x):
-        """Implements the convolution of a time series with the kernel
+        """Implements the convolution of a time series with the kernel using scipy fftconvolve.
 
         Args:
             t (array): time points
@@ -73,22 +53,8 @@ class Kernel:
         
         return convolution
 
-    def correlate_continuous(self, t, x):
-        return self.convolve_continuous(t, x[::-1])[::-1]
-
-    def fit(self, t, input, output, mask=None):
-
-        if mask is None:
-            mask = np.ones(input.shape, dtype=bool)
-
-        X = self.convolve_basis_continuous(t, input)
-        X = X[mask, :]
-        output = output[mask]
-
-        self.coefs = np.linalg.lstsq(X, output, rcond=None)[0]
-
     def convolve_discrete(self, t, s, A=None, shape=None, renewal=False):
-        """Implements the convolution of a discrete events in time with the kernel
+        """Implements the convolution of discrete events in time with the kernel
 
         Args:
             t (array): time points
@@ -122,3 +88,36 @@ class Kernel:
                 convolution[index] = A * self.interpolate(t[arg:] - t[arg])
                 
         return convolution
+   
+    def fit(self, t, input, output, mask=None):
+
+        if mask is None:
+            mask = np.ones(input.shape, dtype=bool)
+
+        X = self.convolve_basis_continuous(t, input)
+        X = X[mask, :]
+        output = output[mask]
+
+        self.coefs = np.linalg.lstsq(X, output, rcond=None)[0]
+
+    def correlate_continuous(self, t, x):
+        return self.convolve_continuous(t, x[::-1])[::-1]
+        
+    def plot(self, t=None, ax=None, offset=0, invert_t=False, invert_values=False, exp_values=False, **kwargs):
+
+        if t is None:
+            t = np.linspace(self.support[0], self.support[1], 200)
+
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        y = self.interpolate(t) + offset
+        if invert_t:
+            t = -t
+        if invert_values:
+            y = -y
+        if exp_values:
+            y = np.exp(y)
+        ax.plot(t, y, **kwargs)
+
+        return ax

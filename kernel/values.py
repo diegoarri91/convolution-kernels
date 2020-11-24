@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import fftconvolve
 
-from .utils import get_dt, searchsorted
 from .base import Kernel
+from .utils import get_dt, searchsorted
 
 
 class KernelBasisValues(Kernel):
@@ -15,11 +15,6 @@ class KernelBasisValues(Kernel):
         self.nbasis = basis_values.shape[1]
         self.coefs = np.array(coefs) if coefs is not None else np.ones(self.nbasis)
         self.support = np.array(support)
-
-    def copy(self):
-        kernel = KernelBasisValues(self.basis_values.copy(), self.support.copy(), self.dt, coefs=self.coefs.copy(), 
-                                   prior=self.prior, prior_pars=self.prior_pars.copy())
-        return kernel
 
     def interpolate(self, t):
 
@@ -84,3 +79,8 @@ class KernelBasisValues(Kernel):
         basis = u[:, :n]
 
         return cls(basis_values=basis, support=support, dt=dt, coefs=coefs)
+
+    def copy(self):
+        kernel = KernelBasisValues(self.basis_values.copy(), self.support.copy(), self.dt, coefs=self.coefs.copy(), 
+                                   prior=self.prior, prior_pars=self.prior_pars.copy())
+        return kernel
