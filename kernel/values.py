@@ -3,52 +3,46 @@ import matplotlib.pyplot as plt
 from scipy.signal import fftconvolve
 
 from .base import Kernel
-from .utils import get_dt, get_arg_support, searchsorted
+from .utils import get_dt, searchsorted
 
 
 class KernelBasisValues(Kernel):
 
-    def __init__(self, dt, basis_values, support=None, coefs=None, prior=None, prior_pars=None):
+    def __init__(self, basis_values, support, dt, coefs=None, prior=None, prior_pars=None):
         super().__init__(prior=prior, prior_pars=prior_pars)
         self.dt = dt
         self.basis_values = basis_values
         self.nbasis = basis_values.shape[1]
-        self.support = np.array(support) if support is not None else np.array([0, basis_values.shape[0] * dt])
         self.coefs = np.array(coefs) if coefs is not None else np.ones(self.nbasis)
-        assert self.basis_values.shape[0] == int((self.support[1] - self.support[0]) / self.dt)
+        self.support = np.array(support)
+
+    def copy(self):
+        kernel = KernelBasisValues(self.basis_values.copy(), self.support.copy(), self.dt, coefs=self.coefs.copy(), 
+                                   prior=self.prior, prior_pars=self.prior_pars.copy())
+        return kernel
 
     def interpolate(self, t):
 
-        assert np.isclose(self.dt, get_dt(t))
+        # assert np.isclose(self.dt, get_dt(t))
 
         t = np.atleast_1d(t)
         res = np.zeros(len(t))
 
-        arg0, argf = get_arg_support(self.dt, self.support, t0=t[0])
+        arg0 = int(self.support[0] / self.dt)
+        argf = int(np.ceil(self.support[1] / self.dt))
 
-        if arg0 >= 0:
-            argf = min(argf, len(t))
-            res[arg0:argf] = np.matmul(self.basis_values, self.coefs)[:argf - arg0]
-        elif arg0 < 0 and argf > 0:
-            n_times = self.basis_values.shape[0]
-            res[:min(len(t), n_times + arg0)] = np.matmul(self.basis_values, self.coefs)[-arg0:min(len(t) - arg0, n_times)]
+        # TODO. Check conditions
+        if arg0 >= 0 and argf <= len(t):
+            res[arg0:argf] = np.matmul(self.basis_values, self.coefs)
+        elif arg0 == 0 and argf > len(t):
+            res = np.matmul(self.basis_values, self.coefs)[:len(t)]
+        else:
+            res = None
         
         return res
 
     def interpolate_basis(self, t):
-        
-        assert np.isclose(self.dt, get_dt(t))
-
-        t = np.atleast_1d(t)
-
-        arg0, argf = get_arg_support(self.dt, self.support, t0=t[0])
-
-        if arg0 >= 0:
-            argf = min(argf, len(t))
-            return self.basis_values[:argf - arg0]
-        elif arg0 < 0 and argf > 0:
-            n_times = self.basis_values.shape[0]
-            return self.basis_values[-arg0:min(len(t) - arg0, n_times)]
+        return self.basis_values
 
     def convolve_basis_discrete(self, t, s, shape=None):
 
@@ -90,8 +84,3 @@ class KernelBasisValues(Kernel):
         basis = u[:, :n]
 
         return cls(basis_values=basis, support=support, dt=dt, coefs=coefs)
-
-    def copy(self):
-        kernel = KernelBasisValues(self.basis_values.copy(), self.support.copy(), self.dt, coefs=self.coefs.copy(), 
-                                   prior=self.prior, prior_pars=self.prior_pars.copy())
-        return kernel
