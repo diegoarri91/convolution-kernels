@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import fftconvolve
 
 from .base import Kernel
-from .utils import get_dt, searchsorted
+from .utils import get_arg_support, get_dt, searchsorted
 
 
 class KernelBasisValues(Kernel):
