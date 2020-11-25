@@ -8,7 +8,7 @@ from .utils import get_arg_support, get_dt, searchsorted
 
 class KernelBasisValues(Kernel):
 
-    def __init__(self, basis_values, support, dt, coefs=None, prior=None, prior_pars=None):
+    def __init__(self, dt, basis_values, support, coefs=None, prior=None, prior_pars=None):
         super().__init__(prior=prior, prior_pars=prior_pars)
         self.dt = dt
         self.basis_values = basis_values
@@ -48,6 +48,36 @@ class KernelBasisValues(Kernel):
         elif arg0 < 0 and argf > 0:
             n_times = self.basis_values.shape[0]
             return self.basis_values[-arg0:min(len(t) - arg0, n_times)]
+        
+    def convolve_basis_continuous(self, t, x):
+        """Implements the convolution of a time series with the kernel basis
+
+        Args:
+            t (array): time points
+            x (array): time series to be convolved
+
+        Returns:
+            array: convolved time series with kernel basis
+        """
+
+        dt = get_dt(t)
+        arg_support0, arg_supportf = get_arg_support(dt, self.support)
+
+        basis = np.expand_dims(self.basis_values, axis=tuple(range(1, x.ndim)))
+                               
+        output = np.zeros(x.shape + (self.nbasis, ))
+        full_convolution = fftconvolve(basis, x[..., None], axes=0)
+        
+        if arg_support0 >= 0:
+            output[arg_support0:, ...] = full_convolution[:len(t) - arg_support0, ...]
+        elif arg_support0 < 0 and arg_supportf >= 0:
+            output = full_convolution[-arg_support0:len(t) - arg_support0, ...]
+        else:
+            output[:len(t) + arg_supportf, ...] = full_convolution[-arg_supportf:, ...]
+        
+        output = output * dt
+
+        return output
 
     def convolve_basis_discrete(self, t, s, shape=None):
 
@@ -88,9 +118,9 @@ class KernelBasisValues(Kernel):
         u, s, v = np.linalg.svd(raised_cosines)
         basis = u[:, :n]
 
-        return cls(basis_values=basis, support=support, dt=dt, coefs=coefs)
+        return cls(dt=dt, basis_values=basis, support=support, coefs=coefs)
 
     def copy(self):
-        kernel = KernelBasisValues(self.basis_values.copy(), self.support.copy(), self.dt, coefs=self.coefs.copy(), 
+        kernel = KernelBasisValues(self.dt, self.basis_values.copy(), self.support.copy(), coefs=self.coefs.copy(), 
                                    prior=self.prior, prior_pars=self.prior_pars.copy())
         return kernel
