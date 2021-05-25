@@ -6,17 +6,15 @@ from .utils import idx_evenstep, pad_dimensions, torch_convolve
 
 class Kernel:
 
-    def __init__(self, kernel_values=None):
+    def __init__(self, kernel_values=None, support=None):
         self.kernel_values = kernel_values
+        self.support = torch.tensor(support)
 
     def interpolate(self, t):
         pass
     
     def interpolate_basis(self, t):
         pass
-
-    def kernel_values(self):
-
 
     def convolve_continuous(self, x, dt=1, trim=True, mode='fft'):
         """Implements the convolution of a time series with the kernel using fftconvolve.
@@ -40,18 +38,17 @@ class Kernel:
             kernel_values = self.kernel_values
 
         kernel_values = pad_dimensions(kernel_values, x.ndim - 1)
+        convolution = torch_convolve(x, kernel_values, dim=0, mode=mode) * dt
 
-        full_convolution = torch_convolve(x, kernel_values, dim=0, mode=mode)
-
-        if trim:
-            convolution = torch.zeros(x.shape)
+        if trim:    
+            # convolution = torch.zeros(x.shape)
             if idx_supporti >= 0:
-                convolution[idx_supporti:, ...] = full_convolution[:size - idx_supporti, ...]
-            elif idx_supporti < 0 and idx_supportf >= 0: # or idx_supporti < 0 and size - idx_supporti <= size + idx_supportf - idx_supporti:
-                convolution = full_convolution[-idx_supporti:size - idx_supporti, ...]
-            else: # or idx_supporti < 0 and size - idx_supporti > size + idx_supportf - idx_supporti:
-                convolution[:size + idx_supportf, ...] = full_convolution[-idx_supportf:, ...]
-                
-        convolution *= dt
+                # convolution[idx_supporti:, ...] = full_convolution[:size - idx_supporti, ...]
+                pad = torch.zeros((idx_supporti,) + x.shape[1:])
+                convolution = torch.cat((pad, convolution[:size - idx_supporti, ...]), dim=0)
+            # elif idx_supporti < 0 and idx_supportf >= 0:  # or idx_supporti < 0 and size - idx_supporti <= size + idx_supportf - idx_supporti:
+            #     convolution = full_convolution[-idx_supporti:size - idx_supporti, ...]
+            # else:  # or idx_supporti < 0 and size - idx_supporti > size + idx_supportf - idx_supporti:
+            #     convolution[:size + idx_supportf, ...] = full_convolution[-idx_supportf:, ...]
         
         return convolution
