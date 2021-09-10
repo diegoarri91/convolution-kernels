@@ -1,23 +1,28 @@
 from math import pi
+
 import torch
 from torch import Tensor
-
 from typing import Optional
 
 from .base import Kernel
-from .utils import idx_evenstep, get_timestep
+from .utils import index_evenstep, get_timestep
 
 
 class KernelFun(Kernel):
 
-    def __init__(self, fun, basis_kwargs, support: Tensor = None, weight: Optional[Tensor] = None):
+    def __init__(self,
+                 fun,
+                 basis_kwargs,
+                 support: Tensor = None,
+                 weight: Optional[Tensor] = None
+                 ):
         super(KernelFun, self).__init__(basis=None, support=support, weight=weight)
         self.fun = fun
         self.basis_kwargs = {key: val.unsqueeze(0) for key, val in basis_kwargs.items()} if basis_kwargs is not None else {}
 
     def interpolate(self, t: Tensor):
         dt = get_timestep(t)
-        idx_start, idx_end = idx_evenstep(dt, self.support, start=t[0])
+        idx_start, idx_end = index_evenstep(dt, self.support, start=t[0])
         values = torch.zeros(len(t))
         basis_values = self.fun(t[idx_start:idx_end].unsqueeze(0), **self.basis_kwargs)
         values[idx_start:idx_end] = basis_values @ self.weight

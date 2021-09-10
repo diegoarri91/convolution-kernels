@@ -4,6 +4,7 @@ from torch import Tensor
 
 def torch_directconvolve(x: Tensor, y: Tensor, dim: int =0):
     r""" Implements direct convolution between x and y along dimension dim"""
+    # TODO. Implement direct convolution
     n = x.shape[0] + y.shape[0]
     parity = n % 2
     x_fft = torch.fft.rfft(x, n=n + parity, dim=dim)
@@ -32,7 +33,7 @@ def torch_convolve(x, y, dim=0, mode='fft'):
         raise ValueError('Mode %s not implemented.' % mode)
     return conv
 
-def idx_evenstep(step, values, floor=True, start=0, rtol=1e-5, atol=1e-8):
+def index_evenstep(step, values, floor=True, start=0, rtol=1e-5, atol=1e-8):
     scaled = (values - start) / step
     rounded = torch.round(scaled).float()
     isequal = torch.isclose(scaled, rounded, rtol=rtol, atol=atol).int()
