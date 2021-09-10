@@ -1,7 +1,9 @@
 import torch
+from torch import Tensor
 
 
-def torch_directconvolve(x, y, dim=0):
+def torch_directconvolve(x: Tensor, y: Tensor, dim: int =0):
+    r""" Implements direct convolution between x and y along dimension dim"""
     n = x.shape[0] + y.shape[0]
     parity = n % 2
     x_fft = torch.fft.rfft(x, n=n + parity, dim=dim)
@@ -11,6 +13,7 @@ def torch_directconvolve(x, y, dim=0):
 
 
 def torch_fftconvolve(x, y, dim=0):
+    r""" Implements fft convolution between x and y along dimension dim"""
     n = x.shape[0] + y.shape[0]
     parity = n % 2
     x_fft = torch.fft.rfft(x, n=n + parity, dim=dim)
@@ -18,23 +21,16 @@ def torch_fftconvolve(x, y, dim=0):
     conv = torch.fft.irfft(x_fft * y_fft, dim=dim)[:-(parity + 1)]
     return conv
 
+
 def torch_convolve(x, y, dim=0, mode='fft'):
+    r""" Implements direct or fft convolution between x and y along dimension dim"""
     if mode == 'fft':
         conv = torch_fftconvolve(x, y, dim=dim)
     elif mode == 'direct':
         conv = torch_directconvolve(x, y, dim=dim)
     else:
-        raise ValueError('mode %s not implemented' % mode)
+        raise ValueError('Mode %s not implemented.' % mode)
     return conv
-
-
-# def fftconvolve(x, y, dim=0):
-#     n = x.shape[dim] + y.shape[dim]
-#     x_fft = torch.fft.rfft(x, n=n, dim=dim)
-#     y_fft = torch.fft.rfft(y, n=n, dim=dim)
-#     convolution = torch.fft.irfft(x_fft * y_fft, dim=0)
-#     return convolution
-
 
 def idx_evenstep(step, values, floor=True, start=0, rtol=1e-5, atol=1e-8):
     scaled = (values - start) / step
@@ -59,10 +55,11 @@ def pad_dimensions(input, pad):
     input = input.reshape(shape)
     return input
 
-# def get_dt(t):
-#     arg_dt = 20 if len(t) >= 20 else len(t)
-#     dt = np.median(np.diff(t[:arg_dt]))
-#     return dt
+
+def get_timestep(t: Tensor):
+    assert torch.isclose(torch.diff(t), t[1] - t[0]), 'time values are not evenly spaced'
+    return t[1] - t[0]
+
 
 # def searchsorted(t, s, side='left'):
 #     '''

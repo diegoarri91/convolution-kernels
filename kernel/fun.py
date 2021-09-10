@@ -1,106 +1,34 @@
-# import numpy as np
-import matplotlib.pyplot as plt
+from math import pi
 import torch
-# from scipy.signal import fftconvolve
+from torch import Tensor
 
-from .utils import get_arg_support, get_dt, searchsorted
+from typing import Optional
+
 from .base import Kernel
+from .utils import idx_evenstep, get_timestep
 
 
 class KernelFun(Kernel):
 
-    def __init__(self, fun, basis_kwargs=None, shared_kwargs=None, support=None, coefs=None, prior=None, prior_pars=None):
-        super().__init__(prior=prior, prior_pars=prior_pars)
+    def __init__(self, fun, basis_kwargs, support: Tensor = None, weight: Optional[Tensor] = None):
+        super(KernelFun, self).__init__(basis=None, support=support, weight=weight)
         self.fun = fun
-        self.basis_kwargs = {key: torch.tensor(val)[None, :] for key, val in basis_kwargs.items()} if basis_kwargs is not None else {}
-        self.shared_kwargs = shared_kwargs if shared_kwargs is not None else {}
-        self.support = torch.tensor(support)
-        self.nbasis = list(self.basis_kwargs.values())[0].shape[1]
-        self.coefs = torch.array(coefs) if coefs is not None else torch.ones(self.nbasis)
+        self.basis_kwargs = {key: val.unsqueeze(0) for key, val in basis_kwargs.items()} if basis_kwargs is not None else {}
 
-#     def copy(self):
-#         kernel = KernelFun(self.fun, basis_kwargs=self.basis_kwargs.copy(),
-#                            shared_kwargs=self.shared_kwargs.copy(), support=self.support.copy(),
-#                            coefs=self.coefs.copy(), prior=self.prior, prior_pars=self.prior_pars.copy())
-#         return kernel
-
-#     def area(self, dt):
-#         return np.sum(self.interpolate(np.arange(self.support[0], self.support[1] + dt, dt))) * dt
-
-    def interpolate(self, t):
-        arg0, argf = searchsorted(t, self.support)
-        values = np.zeros(len(t))
-        values[arg0:argf] = np.sum(self.coefs[None, :] * self.fun(t[arg0:argf, None], **self.basis_kwargs, **self.shared_kwargs), 1)
+    def interpolate(self, t: Tensor):
+        dt = get_timestep(t)
+        idx_start, idx_end = idx_evenstep(dt, self.support, start=t[0])
+        values = torch.zeros(len(t))
+        basis_values = self.fun(t[idx_start:idx_end].unsqueeze(0), **self.basis_kwargs)
+        values[idx_start:idx_end] = basis_values @ self.weight
         return values
-
-#     def interpolate_basis(self, t):
-#         arg0, argf = searchsorted(t, self.support)
-#         basis = np.zeros((len(t), self.nbasis))
-#         basis[arg0:argf] = self.fun(t[arg0:argf, None], **self.basis_kwargs, **self.shared_kwargs)
-#         return basis
-
-#     def convolve_basis_continuous(self, t, x):
-#         """Implements the convolution of a time series with the kernel basis
-
-#         Args:
-#             t (array): time points
-#             x (array): time series to be convolved
-
-#         Returns:
-#             array: convolved time series with kernel basis
-#         """
-
-#         dt = get_dt(t)
-#         arg_support0, arg_supportf = get_arg_support(dt, self.support)
-
-#         basis_shape = tuple([arg_supportf - arg_support0] + [1 for ii in range(x.ndim - 1)] + [self.nbasis])
-#         t_support = np.arange(arg_support0, arg_supportf, 1) * dt
-#         basis = self.interpolate_basis(t_support).reshape(basis_shape)
-
-#         output = np.zeros(x.shape + (self.nbasis, ))
-#         full_convolution = fftconvolve(basis, x[..., None], axes=0)
-        
-#         if arg_support0 >= 0:
-#             output[arg_support0:, ...] = full_convolution[:len(t) - arg_support0, ...]
-#         elif arg_support0 < 0 and arg_supportf >= 0:
-#             output = full_convolution[-arg_support0:len(t) - arg_support0, ...]
-#         else:
-#             output[:len(t) + arg_supportf, ...] = full_convolution[-arg_supportf:, ...]
-        
-#         output = output * dt
-
-#         return output
-
-#     def convolve_basis_discrete(self, t, s, shape=None):
-
-#         if type(s) is np.ndarray:
-#             s = (s,)
-
-#         arg_s = searchsorted(t, s[0])
-#         arg_s = np.atleast_1d(arg_s)
-#         arg0, argf = searchsorted(t, self.support)
-
-#         if shape is None:
-#             shape = tuple([len(t)] + [max(s[dim]) + 1 for dim in range(1, len(s))] + [self.nbasis])
-#         else:
-#             shape = shape + (self.nbasis, )
-
-#         X = np.zeros(shape)
-
-#         kwargs = {**{key: vals[None, :] for key, vals in self.basis_kwargs.items()}, **self.shared_kwargs}
-        
-#         for ii, arg in enumerate(arg_s):
-#             indices = tuple([slice(arg, None)] + [s[dim][ii] for dim in range(1, len(s))] + [slice(0, self.nbasis)])
-#             X[indices] += self.fun(t[arg:, None] - t[arg], **kwargs).reshape((len(t[arg:]), self.nbasis))
-
-#         return X
     
-#     @classmethod
-#     def gaussian(cls, tau, A, tm=0, support=None):
-#         coefs = np.array([A])
-#         support = support if support is not None else np.array([-5 * tau, 5 * tau]) + tm
-#         return cls(fun=lambda t, tau: np.exp(-((t - tm) / tau)**2), basis_kwargs=dict(tau=np.array([tau])),
-#                    support=support, coefs=coefs)
+    @classmethod
+    def gaussian(cls, sigma: Tensor, weight: Optional[Tensor] = None, support: Tensor = None): # TODO. Define support type here too
+        max_sigma = torch.max(sigma)
+        support = support if support is not None else torch.tensor([-5 * max_sigma, 5 * max_sigma])
+        gaussian_fun = lambda t, sigma: torch.exp(-(t / (2. * sigma))**2) / (torch.sqrt(2. * pi) * sigma)
+        return cls(gaussian_fun, basis_kwargs=dict(sigma=sigma), support=support, weight=weight)
 
 #     @classmethod
 #     def gaussian_delta(cls, delta, tm=0, support=None):
