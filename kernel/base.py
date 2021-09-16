@@ -1,15 +1,14 @@
 from math import pi
 
 import torch
+import torch.nn as nn
 from torch import Tensor
-from torch.nn.parameter import Parameter
-from torch.nn import Module
 from typing import Optional, Union
 
 from .utils import index_evenstep, pad_dimensions, torch_convolve
 
 
-class Kernel(Module):
+class Kernel(nn.Module):
     r""" Implements the convolution of a signal with the kernel.
 
         Args:
@@ -24,17 +23,17 @@ class Kernel(Module):
                  support: Optional[Tensor] = None,
                  weight: Optional[Tensor] = None
                  ):
-        super(Kernel, self).__init__()
+        super().__init__()
         self.basis = basis.reshape(len(basis), 1) if basis is not None and basis.ndim == 1 else basis
         self.support = support if support is not None else torch.tensor([0, basis.shape[0]])
         self.weight = weight if weight is not None else torch.randn(self.basis.shape[1])
-        self.weight = Parameter(self.weight)
+        self.weight = nn.Parameter(self.weight)
 
         if basis is not None and basis.ndim > 2:
             raise ValueError('basis should be a Tensor of ndim <= 2')
-        if support.shape != (2,):
+        if self.support.shape != (2,):
             raise ValueError('support must be of shape (2,)')
-        if basis is not None and weight.shape == (basis.shape[1],):
+        if self.basis is not None and self.weight.shape != (self.basis.shape[1],):
             raise ValueError('weight size should match dimension 2 of basis')
 
     def interpolate(self, t):
@@ -60,7 +59,7 @@ class Kernel(Module):
             kernel_values = self.basis @ self.weight
 
         kernel_values = pad_dimensions(kernel_values, x.ndim - 1)
-        convolution = torch_convolve(x, kernel_values, dim=0, mode=mode) * dt
+        convolution = torch_convolve(x, kernel_values, mode=mode) * dt
 
         if trim:
             if support_start >= 0:
@@ -71,7 +70,9 @@ class Kernel(Module):
                 convolution = convolution[-support_start:size - support_start, ...]
             else:  # or support_start < 0 and size - support_start > size + support_end - support_start:
                 pad = torch.zeros((-support_end,) + x.shape[1:])
-                convolution = torch.cat((convolution[:-support_end, ...], pad), dim=0)
+                convolution = torch.cat((convolution[-support_end:, ...], pad), dim=0)
+        else:
+            raise(NotImplementedError)
 
         return convolution
 
@@ -100,7 +101,6 @@ class Kernel(Module):
 
     @classmethod
     def orthogonalized_raised_cosines(cls, dt, last_time_peak, n, b, a=1e0, weight=None):
-        # TODO test this method.
 
         range_locs = torch.log(torch.tensor([0, last_time_peak]) + b)
         delta = (range_locs[1] - range_locs[0]) / (n - 1)
@@ -110,8 +110,9 @@ class Kernel(Module):
         t = torch.arange(0, last_time, dt)
         support = torch.tensor([t[0], t[-1] + dt])
 
-        raised_cosines = (1 + torch.cos(torch.maximum(-pi, torch.minimum(
-            a * (torch.log(t[:, None] + b) - locs[None, :]) * pi / delta / 2, pi)))) / 2
+        pi_torch = torch.tensor([pi])
+        raised_cosines = torch.minimum(a * (torch.log(t[:, None] + b) - locs[None, :]) * pi / delta / 2, pi_torch)
+        raised_cosines = (1 + torch.cos(torch.maximum(-pi_torch, raised_cosines))) / 2
         raised_cosines = raised_cosines / torch.sqrt(torch.sum(raised_cosines ** 2, 0))
         u, s, v = torch.linalg.svd(raised_cosines)
         basis = u[:, :n]
