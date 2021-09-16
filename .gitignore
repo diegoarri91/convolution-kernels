@@ -1,9 +1,6 @@
 .idea/
-.ipynb_checkpoints/
+.ipynb_checkpoints
+__pycache__
 .pytest_cache/
-/examples/.ipynb_checkpoints/
-/kernel/__pycache__/
-/kernel/.ipynb_checkpoints/
-/_tests/
-/tests/__pycache__/
-
+kernel/rect.py
+_tests/
