@@ -1,74 +1,74 @@
 # convolution-kernels
-This is a Python module that implements kernels/filters methods for time series analysis. Kernels are defined as a linear combination of basis functions.
 
-## Example
-### Define a kernel basis from a Python function
+This is a Python package that implements kernels/filters convolutions for time series modeling. Kernels
+are defined as different linear combinations of basis functions with coefficients. Convolutions
+are implemented using PyTorch so we can use its automatic differentiation capabilities to learn the kernel coefficients.
+
+### Use case 1. Smoothing with built-in kernels
 ```python
-import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
 from kernel.fun import KernelFun
 
-def exponential_basis(t, tau):
-    return np.exp(-t / tau)
+torch.manual_seed(42)
 
-ker = KernelFun(exponential_basis, basis_kwargs=dict(tau=[2, 15]), support=[0, 80], coefs=[10, -2])
+sigma = torch.tensor([2.])
+weight = torch.tensor([1.])
+ker = KernelFun.gaussian(sigma=sigma, weight=weight)
 
-t_support = np.arange(0, 80, 1)
-y = ker.interpolate(t_support)
-basis = ker.interpolate_basis(t_support)
+t = torch.arange(0, 200, 1)
+x = torch.randn(len(t))
+y = ker(x)
 
-fig, (ax1, ax2) = plt.subplots(figsize=(8, 4), ncols=2)
-ax1.plot(t_support, y, '-')
-ax2.plot(t_support, basis, '-')
-
-ax1.set_title('kernel')
-ax2.set_title('basis')
-
-for ax in [ax1, ax2]:
-    ax.set_xlabel('time')
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.plot(t, x.numpy(), label='x')
+ax.plot(t, y.detach().numpy(), label='y')
+ax.legend();
 ```
-<p align="center">
-  <img src=/examples/fig_readme1.png>
+<p>
+    <img src=/examples/fig1_readme.png>
 </p>
 
-### Convolve the kernel with a time series
+### Use case 2. Define a custom basis and fit the kernel to data
 ```python
-t = np.arange(0, 1000, 1)
-input = np.random.randn(len(t))
+from kernel.base import Kernel
 
-output_convolution = ker.convolve_continuous(t, input)
+# Load data
+x, y_true = torch.load('data.pt')
 
-fig, (ax1, ax2) = plt.subplots(figsize=(12, 4), sharex=True, nrows=2)
-ax1.plot(t, input)
-ax2.plot(t, output_convolution)
+# Define exponential basis with two timescales (10 and 100)
+tau = torch.tensor([10, 100]).unsqueeze(0)
+support_arange = torch.arange(0, 500, 1).unsqueeze(1)
+basis = torch.exp(-support_arange / tau)
+ker = Kernel(basis=basis)
 
-ax1.set_title('input')
-ax2.set_title('convolved input')
-
-for ax in [ax1, ax2]:
-    ax.set_xlabel('time')
+# Define PyTorch optimizer and minimize mean squared error
+optim = torch.optim.Adam(ker.parameters(), lr=5e-2)
+ms_errors = []
+for i in range(100):
+    optim.zero_grad()
+    y = ker(x)
+    mse = torch.mean((y - y_true)**2)
+    mse.backward()
+    optim.step()
+    ms_errors.append(mse.item())
     
-fig.tight_layout()
-```
-<p align="center">
-  <img src=/examples/fig_readme2.png>
-</p>
+# Predict output
+y_pred = ker(x).detach()
 
-### Define a basis and get its coefficients given an input and output signal by least squares
-```python
-ker_fit = KernelFun(exponential_basis, basis_kwargs=dict(tau=[2, 15]), support=[0, 80])
-
-ker_fit.fit(t, input, output_convolution)
-
-y_fit = ker_fit.interpolate(t_support)
-
+# Loss
 fig, ax = plt.subplots(figsize=(4, 4))
-ax.plot(t_support, y, '-', lw=2, label='true')
-ax.plot(t_support, y_fit, '--', label='recovered')
-ax.set_xlabel('time')
-ax.legend()
+ax.plot(ms_errors)
+ax.set_xlabel('step'); ax.set_ylabel('mse')
+
+# Predicted output
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.plot(y_true.numpy(), label='true')
+ax.plot(y_pred.numpy(), lw=0.5, label='predicted')
+ax.legend();
 ```
-<p align="center">
-  <img src=/examples/fig_readme3.png>
+<p>
+    <img src=/examples/fig2_readme.png>
+    <img src=/examples/fig3_readme.png>
 </p>

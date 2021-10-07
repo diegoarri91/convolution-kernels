@@ -24,7 +24,7 @@ class KernelFun(Kernel):
         dt = get_timestep(t)
         idx_start, idx_end = index_evenstep(dt, self.support, start=t[0])
         values = torch.zeros(len(t))
-        basis_values = self.fun(t[idx_start:idx_end].unsqueeze(0), **self.basis_kwargs)
+        basis_values = self.fun(t[idx_start:idx_end].unsqueeze(1), **self.basis_kwargs)
         values[idx_start:idx_end] = basis_values @ self.weight
         return values
     
@@ -32,7 +32,8 @@ class KernelFun(Kernel):
     def gaussian(cls, sigma: Tensor, weight: Optional[Tensor] = None, support: Tensor = None): # TODO. Define support type here too
         max_sigma = torch.max(sigma)
         support = support if support is not None else torch.tensor([-5 * max_sigma, 5 * max_sigma])
-        gaussian_fun = lambda t, sigma: torch.exp(-(t / (2. * sigma))**2) / (torch.sqrt(2. * pi) * sigma)
+        pi_torch = torch.tensor([pi])
+        gaussian_fun = lambda t, sigma: torch.exp(-(t / (2. * sigma))**2) / (torch.sqrt(2. * pi_torch) * sigma)
         return cls(gaussian_fun, basis_kwargs=dict(sigma=sigma), support=support, weight=weight)
 
 #     @classmethod
