@@ -55,6 +55,7 @@ class Kernel(nn.Module):
         if self.basis is None:
             t_support = torch.arange(support_start, support_end, 1) * dt
             kernel_values = self.interpolate(t_support)
+            print(kernel_values.shape)
         else:
             kernel_values = self.basis @ self.weight
 
