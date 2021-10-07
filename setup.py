@@ -41,6 +41,7 @@ setup(
     ],
     keywords=['python', 'pytorch', 'convolution', 'kernel', 'autograd'],
     packages=['kernel'],
+    include_package_data=True,
     install_requires=_load_requirements(PATH_ROOT),
     python_requires='>=3',
 )
