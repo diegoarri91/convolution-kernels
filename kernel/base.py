@@ -21,13 +21,14 @@ class Kernel(nn.Module):
     def __init__(self,
                  basis: Union[Tensor, None],
                  support: Optional[Tensor] = None,
-                 weight: Optional[Tensor] = None
+                 weight: Optional[Tensor] = None,
+                 requires_grad: bool = True
                  ):
         super().__init__()
         self.basis = basis.reshape(len(basis), 1) if basis is not None and basis.ndim == 1 else basis
         self.support = support if support is not None else torch.tensor([0, basis.shape[0]])
         self.weight = weight if weight is not None else torch.randn(self.basis.shape[1])
-        self.weight = nn.Parameter(self.weight)
+        self.weight = nn.Parameter(self.weight, requires_grad=requires_grad)
 
         if basis is not None and basis.ndim > 2:
             raise ValueError('basis should be a Tensor of ndim <= 2')
@@ -55,7 +56,6 @@ class Kernel(nn.Module):
         if self.basis is None:
             t_support = torch.arange(support_start, support_end, 1) * dt
             kernel_values = self.interpolate(t_support)
-            print(kernel_values.shape)
         else:
             kernel_values = self.basis @ self.weight
 

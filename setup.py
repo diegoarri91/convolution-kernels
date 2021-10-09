@@ -5,8 +5,9 @@ from typing import List
 
 LONG_DESCRIPTION = """Python package that implements kernels/filters convolutions for time series modeling. Kernels 
                       are defined as different linear combinations of basis functions with coefficients. Convolutions
-                      are implemented using PyTorch so we can use its automatic differentiation to fit the kernels."""
+                      are implemented using PyTorch so we can use its automatic differentiation to fit the kernels.""" #TODO. fix so that it is displayed properly in PyPI
 PATH_ROOT = os.path.dirname(__file__)
+
 
 def _load_requirements(path_dir: str , file_name: str = 'requirements.txt', comment_char: str = '#') -> List[str]:
     """Load requirements from a file
@@ -22,7 +23,6 @@ def _load_requirements(path_dir: str , file_name: str = 'requirements.txt', comm
             ln = ln[:ln.index(comment_char)].strip()
         if ln:  # if requirement is not empty
             reqs.append(ln)
-    print(reqs)
     return reqs
 
 setup(
