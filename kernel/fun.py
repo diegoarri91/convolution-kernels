@@ -14,9 +14,10 @@ class KernelFun(Kernel):
                  fun,
                  basis_kwargs,
                  support: Tensor = None,
-                 weight: Optional[Tensor] = None
+                 weight: Optional[Tensor] = None, 
+                 requires_grad: bool = True
                  ):
-        super(KernelFun, self).__init__(basis=None, support=support, weight=weight)
+        super(KernelFun, self).__init__(basis=None, support=support, weight=weight, requires_grad=requires_grad)
         self.fun = fun
         self.basis_kwargs = {key: val.unsqueeze(0) for key, val in basis_kwargs.items()} if basis_kwargs is not None else {}
 
@@ -29,12 +30,14 @@ class KernelFun(Kernel):
         return values
     
     @classmethod
-    def gaussian(cls, sigma: Tensor, weight: Optional[Tensor] = None, support: Tensor = None): # TODO. Define support type here too
+    def gaussian(cls, sigma: Tensor, weight: Optional[Tensor] = None, support: Optional[Tensor] = None, 
+                 requires_grad: bool = True): # TODO. Define support type here too
         max_sigma = torch.max(sigma)
         support = support if support is not None else torch.tensor([-5 * max_sigma, 5 * max_sigma])
         pi_torch = torch.tensor([pi])
         gaussian_fun = lambda t, sigma: torch.exp(-(t / (2. * sigma))**2) / (torch.sqrt(2. * pi_torch) * sigma)
-        return cls(gaussian_fun, basis_kwargs=dict(sigma=sigma), support=support, weight=weight)
+        return cls(gaussian_fun, basis_kwargs=dict(sigma=sigma), support=support, weight=weight, 
+                   requires_grad=requires_grad)
 
 #     @classmethod
 #     def gaussian_delta(cls, delta, tm=0, support=None):

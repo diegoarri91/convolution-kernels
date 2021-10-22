@@ -3,6 +3,17 @@ import torch.nn.functional as F
 from torch import Tensor
 
 
+def torch_convolve(x: Tensor, y: Tensor, mode: str = 'fft'):
+    r""" Implements direct or fft convolution between x and y along dimension dim"""
+    if mode == 'fft':
+        conv = torch_fftconvolve(x, y)
+    elif mode == 'direct':
+        conv = torch_directconvolve(x, y)
+    else:
+        raise ValueError('Mode %s not implemented.' % mode)
+    return conv
+
+
 def torch_directconvolve(x: Tensor, y: Tensor):
     r""" Implements direct convolution between x and y along dimension dim"""
     padding = y.shape[0] - 1
@@ -27,15 +38,14 @@ def torch_fftconvolve(x: Tensor, y: Tensor):
     return conv
 
 
-def torch_convolve(x: Tensor, y: Tensor, mode: str = 'fft'):
-    r""" Implements direct or fft convolution between x and y along dimension dim"""
-    if mode == 'fft':
-        conv = torch_fftconvolve(x, y)
-    elif mode == 'direct':
-        conv = torch_directconvolve(x, y)
-    else:
-        raise ValueError('Mode %s not implemented.' % mode)
-    return conv
+def torch_raw_autocorrelation(x: Tensor, mode: str = 'fft'):
+    raw_autocorr = torch_convolve(x, x.flip(dims=(0,)), mode=mode).flip(dims=(0,))
+    return raw_autocorr
+
+
+def torch_raw_correlation(x: Tensor, y: Tensor, mode: str = 'fft'):
+    raw_corr = torch_convolve(x, y.flip(dims=(0,)), mode=mode).flip(dims=(0,))
+    return raw_corr
 
 
 def index_evenstep(step, values, floor=True, start=0, rtol=1e-5, atol=1e-8):
@@ -63,7 +73,7 @@ def pad_dimensions(input, pad):
 
 
 def get_timestep(t: Tensor):
-    assert torch.isclose(torch.diff(t), t[1] - t[0]).all(), 'time values are not evenly spaced'
+    assert torch.isclose(torch.diff(t), t[1] - t[0]).all(), 'Time values are not evenly spaced'
     return t[1] - t[0]
 
 
