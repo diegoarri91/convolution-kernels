@@ -73,7 +73,7 @@ def pad_dimensions(input, pad):
 
 
 def get_timestep(t: Tensor):
-    assert torch.isclose(torch.diff(t), t[1] - t[0]).all(), 'time values are not evenly spaced'
+    assert torch.isclose(torch.diff(t), t[1] - t[0]).all(), 'Time values are not evenly spaced'
     return t[1] - t[0]
 
 

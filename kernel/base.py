@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch import Tensor
 from typing import Optional, Union
 
-from .utils import index_evenstep, pad_dimensions, torch_convolve
+from .utils import get_timestep, index_evenstep, pad_dimensions, torch_convolve
 
 
 class Kernel(nn.Module):
@@ -40,8 +40,34 @@ class Kernel(nn.Module):
     def interpolate(self, t):
         pass
 
-    def interpolate_basis(self, t):
-        pass
+    def evaluate(self, t):
+        basis = self.evaluate_basis(t)
+        return basis @ self.weight
+
+    def evaluate_basis(self, t):
+        r"""
+        Evaluates the kernel basis at the given time points
+        """
+        if len(t) > 1:
+            dt = get_timestep(t)
+        else:
+            dt = 1  # TODO. see hot to incorporate dt
+        support_start, support_end = index_evenstep(dt, self.support, start=t[0])
+        idx_start, idx_end = support_start, support_end
+
+        basis_values = self.basis.clone()
+        if support_start < 0:
+            basis_values = basis_values[-support_start:]
+            idx_start = 0
+
+        if len(t) < support_end :
+            basis_values = basis_values[:-(support_end - len(t))]
+            idx_end = len(t)
+
+        output = torch.zeros((len(t),) + self.basis.shape[1:])
+        output[idx_start:idx_end] = basis_values
+
+        return output
 
     def forward(self,
                 x: Tensor,
