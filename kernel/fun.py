@@ -17,21 +17,37 @@ class KernelFun(Kernel):
                  weight: Optional[Tensor] = None, 
                  requires_grad: bool = True
                  ):
-        super(KernelFun, self).__init__(basis=None, support=support, weight=weight, requires_grad=requires_grad)
         self.fun = fun
-        self.basis_kwargs = {key: val.unsqueeze(0) for key, val in basis_kwargs.items()} if basis_kwargs is not None else {}
+        self.nbasis = len(basis_kwargs)
+        self.dtype = list(basis_kwargs.values())[0].dtype
+        self.basis_kwargs = {} if basis_kwargs is None else {key: val.unsqueeze(0) for key, val in basis_kwargs.items()}
+        super(KernelFun, self).__init__(basis=None, support=support, weight=weight, requires_grad=requires_grad)
 
-    def interpolate(self, t: Tensor):
+    def clone(self):
+        basis_kwargs = {key: val.clone() for key, val in self.basis_kwargs.items()}
+        kernel = KernelFun(fun=self.fun, basis_kwargs=basis_kwargs, support=self.support,
+                           weight=self.weight.detach().clone(), requires_grad=self.weight.requires_grad)
+        return kernel
+
+    def evaluate_basis(self, t: Tensor):
         dt = get_timestep(t)
-        idx_start, idx_end = index_evenstep(dt, self.support, start=t[0])
-        values = torch.zeros(len(t))
-        basis_values = self.fun(t[idx_start:idx_end].unsqueeze(1), **self.basis_kwargs)
-        values[idx_start:idx_end] = basis_values @ self.weight
-        return values
-    
+        support_start, support_end = index_evenstep(dt, self.support, start=t[0])
+        support_start = support_start if support_start >= 0 else 0
+        support_end = support_end if support_end <= len(t) else 0
+        basis_values = torch.zeros(len(t), self.nbasis)
+        basis_values[support_start:support_end] = self.fun(t[support_start:support_end, None], **self.basis_kwargs)
+        return basis_values
+
     @classmethod
-    def gaussian(cls, sigma: Tensor, weight: Optional[Tensor] = None, support: Optional[Tensor] = None, 
-                 requires_grad: bool = True): # TODO. Define support type here too
+    def exponential(cls, tau: Tensor, support: Optional[Tensor] = None, weight: Optional[Tensor] = None,
+                    requires_grad: bool = True):
+        support = support if support is not None else torch.tensor([0, 10 * torch.max(tau)])
+        exp_fun = lambda t, tau: torch.exp(-t / tau)
+        return cls(exp_fun, basis_kwargs=dict(tau=tau), support=support, weight=weight, requires_grad=requires_grad)
+
+    @classmethod
+    def gaussian(cls, sigma: Tensor, support: Optional[Tensor] = None, weight: Optional[Tensor] = None,
+                 requires_grad: bool = True):
         max_sigma = torch.max(sigma)
         support = support if support is not None else torch.tensor([-5 * max_sigma, 5 * max_sigma])
         pi_torch = torch.tensor([pi])
@@ -48,10 +64,3 @@ class KernelFun(Kernel):
 #         support = support if support is not None else [tm, tm + 10 * tau]
 #         return cls(fun=lambda t, tau: np.exp(-(t - tm) / tau), basis_kwargs=dict(tau=np.array([tau])), support=support,
 #                    coefs=np.array([A]))
-    
-#     @classmethod
-#     def exponential(cls, tau, coefs=None, support=None):
-#         coefs = coefs if coefs is not None else np.ones(len(tau))
-#         support = support if support is not None else [0, 10 * np.max(tau)]
-#         return cls(fun=lambda t, tau: np.exp(-t / tau), basis_kwargs=dict(tau=np.array(tau)), support=support,
-#                    coefs=coefs)
